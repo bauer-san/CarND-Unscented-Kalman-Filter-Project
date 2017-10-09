@@ -25,12 +25,15 @@ public:
 
   ///* state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
   VectorXd x_;
-  
-  ///* state covariance matrix
-  MatrixXd P_;
 
   ///* predicted sigma points matrix
   MatrixXd Xsig_pred_;
+  
+  //create a matrix to hold the sigma points
+  MatrixXd Xsig_aug;
+  
+  ///* state covariance matrix
+  MatrixXd P_;
 
   ///* time when the state is true, in us
   long long time_us_;
@@ -121,6 +124,11 @@ public:
    * @param meas_package The measurement at k+1
    */
   void UpdateRadar(MeasurementPackage meas_package);
+  
+  // smaller/testable functions
+  void GenerateSigmaPoints();
+  void PredictSigmaPoints(double delta_t);
+  void PredictMeanAndCovariance();
 };
 
 #endif /* UKF_H */
