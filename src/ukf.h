@@ -25,7 +25,7 @@ public:
 
   ///* state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
   VectorXd x_;
-
+  
   ///* state covariance matrix
   MatrixXd P_;
 
@@ -65,6 +65,9 @@ public:
   ///* Augmented state dimension
   int n_aug_;
 
+  ///* number of sigma points  
+  int n_sig_;
+
   ///* Sigma point spreading parameter
   double lambda_;
 
@@ -73,6 +76,16 @@ public:
 
   ///* the current NIS for laser
   double NIS_laser_;
+  
+
+  enum StateElement{
+    px,
+	py,
+	v,
+	psi,
+	psid,
+	n_states
+  } state_element_type_;
 
   /**
    * Constructor
