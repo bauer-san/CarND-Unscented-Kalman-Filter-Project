@@ -357,6 +357,36 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+
+  // LASER
+  //update the state by using linear Kalman Filter equations
+  //measurement matrix - laser
+
+  VectorXd z = VectorXd(2);
+  z = meas_package.raw_measurements_;
+
+  MatrixXd R_ = MatrixXd(2,2);  
+  R_.diagonal() << std_laspx_*std_laspx_, std_laspy_*std_laspy_;
+
+  MatrixXd H_ = MatrixXd(2, 5);
+  H_ << 1, 0, 0, 0, 0,
+        0, 1, 0, 0, 0;
+
+  VectorXd z_pred = H_ * x_;
+  VectorXd y = z - z_pred;
+  MatrixXd Ht = H_.transpose();
+  MatrixXd PHt = P_ * Ht;  
+  MatrixXd S = H_ * PHt + R_;
+  MatrixXd Si = S.inverse();
+  MatrixXd K = PHt * Si;
+
+  x_ = x_ + (K * y);
+  long x_size = x_.size();
+  MatrixXd I = MatrixXd::Identity(x_size, x_size);
+  P_ = (I - K * H_) * P_;    
+
+//Calculate NIS
+
 }
 
 /**
