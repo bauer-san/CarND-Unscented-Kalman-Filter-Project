@@ -48,7 +48,7 @@ UKF::UKF() {
   
   // initial covariance matrix
   P_ = MatrixXd(n_x_, n_x_);
-//  P_.fill(0.);
+  P_.fill(0.);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 2; //30;
@@ -127,17 +127,22 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     Prediction((meas_package.timestamp_ - time_us_)/1E6);
     
     if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+	  std::cout << "laser\n";
       UpdateLidar(meas_package);
     }
 
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+	  std::cout << "radar\n";
       UpdateRadar(meas_package);
     }
   }
   
   // Update time
   time_us_ = meas_package.timestamp_;
-  
+
+std::cout << "x_:\n" << x_ << std::endl;
+std::cout << "P_:\n" << P_ << std::endl;
+std::cin >> is_initialized_;
 }
 
 /**
@@ -402,4 +407,103 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the radar NIS.
   */
+  
+  // measurement vector: rho, psi, rhodot
+  int n_z = 3;
+  
+  //create matrix for sigma points in measurement space
+  MatrixXd Zsig = MatrixXd(n_z, n_sig_);  
+
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
+  
+  VectorXd z_diff = VectorXd(n_z);  
+  
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(n_z,n_z);
+  
+  MatrixXd R = MatrixXd(n_z,n_z);
+  R.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_,std_radrd_*std_radrd_;
+  
+  float px_, py_, v_, psi_, psid_;
+  //transform sigma points into measurement space
+  for (int i=0;i<n_sig_;i++) {
+      px_ = Xsig_pred_.col(i)(0);
+      py_ = Xsig_pred_.col(i)(1);
+      v_ = Xsig_pred_.col(i)(2);
+      psi_ = Xsig_pred_.col(i)(3);
+      psid_ = Xsig_pred_.col(i)(4);
+      
+      Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_), 
+                                                                     atan(py_/px_), 
+                     (px_*cos(psi_)*v_ + py_*sin(psi_)*v_)/sqrt(px_*px_ + py_*py_);
+					 
+  }
+  
+  //calculate mean predicted measurement
+  for (int row=0;row<n_z; row++) {
+      for(int col=0;col<n_sig_;col++) {
+          z_pred(row) += weights_(col)*Zsig(row,col);
+      }
+  }
+  
+  //calculate measurement covariance matrix S
+  for(int col=0;col<n_sig_;col++) {
+    z_diff = (Zsig.col(col) - z_pred);
+    S += weights_(col) * z_diff * z_diff.transpose();
+  }
+  S += R;
+
+  //create matrix for cross correlation Tc
+  MatrixXd Tc = MatrixXd(n_x_, n_z);
+
+  //create matrix for Kalman gain
+  MatrixXd K = MatrixXd(n_x_, n_z);  
+
+  // helper vectors
+  VectorXd xdiff = VectorXd(n_x_);
+  VectorXd zdiff = VectorXd(n_z);  
+
+/*******************************************************************************
+ * Student part begin
+ ******************************************************************************/
+
+  //calculate cross correlation matrix
+  for (int col=0; col <n_sig_; col++) {
+    xdiff=Xsig_pred_.col(col) - x_;
+    //angle normalization
+    while (xdiff(1)> M_PI) xdiff(1)-=2.*M_PI;
+    while (xdiff(1)<-M_PI) xdiff(1)+=2.*M_PI;
+
+    //zdiff=Zsig.col(col) - z;
+	zdiff=Zsig.col(col) - meas_package.raw_measurements_;
+	
+    //angle normalization
+    while (zdiff(1)> M_PI) zdiff(1)-=2.*M_PI;
+    while (zdiff(1)<-M_PI) zdiff(1)+=2.*M_PI;
+    
+    Tc += weights_(col) * xdiff * zdiff.transpose();       
+  }
+
+//std::cout << Tc << std::endl;
+
+  //calculate Kalman gain K;
+  K = Tc * S.inverse();
+
+//std::cout << K << std::endl;
+  
+  //update state mean and covariance matrix
+  //zdiff = z-z_pred;
+  zdiff = meas_package.raw_measurements_ - z_pred;
+  
+  //angle normalization
+  while (zdiff(1)> M_PI) zdiff(1)-=2.*M_PI;
+  while (zdiff(1)<-M_PI) zdiff(1)+=2.*M_PI;
+
+  x_ += K*(zdiff);
+  P_ -= K*S*K.transpose();
+
+/*******************************************************************************
+ * Student part end
+ ******************************************************************************/  
 }
