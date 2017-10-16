@@ -429,11 +429,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   float px_, py_, v_, psi_, psid_;
   //transform sigma points into measurement space
   for (int i=0;i<n_sig_;i++) {
-      px_ = Xsig_pred_.col(i)(0);
-      py_ = Xsig_pred_.col(i)(1);
-      v_ = Xsig_pred_.col(i)(2);
-      psi_ = Xsig_pred_.col(i)(3);
-      psid_ = Xsig_pred_.col(i)(4);
+      px_ = Xsig_pred_.col(i)(px);
+      py_ = Xsig_pred_.col(i)(py);
+      v_ = Xsig_pred_.col(i)(v);
+      psi_ = Xsig_pred_.col(i)(psi);
+      psid_ = Xsig_pred_.col(i)(psid);
       
       Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_), 
                                                                      atan(py_/px_), 
