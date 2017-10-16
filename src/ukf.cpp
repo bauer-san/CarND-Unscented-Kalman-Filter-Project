@@ -142,7 +142,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 std::cout << "x_:\n" << x_ << std::endl;
 std::cout << "P_:\n" << P_ << std::endl;
-std::cin >> is_initialized_;
+//std::cin >> is_initialized_;
 }
 
 /**
@@ -420,7 +420,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_diff = VectorXd(n_z);  
   
   //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z,n_z);
+  MatrixXd S = MatrixXd(n_z,n_z);  // Why is he not initialized?
+  S.fill(0.);
   
   MatrixXd R = MatrixXd(n_z,n_z);
   R.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_,std_radrd_*std_radrd_;
@@ -455,7 +456,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   S += R;
 
   //create matrix for cross correlation Tc
-  MatrixXd Tc = MatrixXd(n_x_, n_z);
+  MatrixXd Tc = MatrixXd(n_x_, n_z);  // Why is he not initialized?!
+  Tc.fill(0.);
 
   //create matrix for Kalman gain
   MatrixXd K = MatrixXd(n_x_, n_z);  
@@ -463,10 +465,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   // helper vectors
   VectorXd xdiff = VectorXd(n_x_);
   VectorXd zdiff = VectorXd(n_z);  
-
-/*******************************************************************************
- * Student part begin
- ******************************************************************************/
 
   //calculate cross correlation matrix
   for (int col=0; col <n_sig_; col++) {
