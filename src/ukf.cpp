@@ -73,6 +73,9 @@ UKF::UKF() {
   // Radar measurement noise standard deviation radius change in m/s
   std_radrd_ = 0.3;
 
+  NIS_laser_ = 0.;
+  NIS_radar_ = 0.;
+
   //Calculate the weights
   weights_ = VectorXd(n_sig_);
   for (int i=0;i<n_sig_;i++) {
@@ -129,8 +132,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     Prediction((meas_package.timestamp_ - time_us_)/1E6);
     
     if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
-	  std::cout << "laser\n";
-      UpdateLidar(meas_package);
+//	  std::cout << "laser\n";
+//      UpdateLidar(meas_package);
     }
 
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
@@ -143,8 +146,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   time_us_ = meas_package.timestamp_;
 
 #if (TEST==1)
-	std::cout << "x_:\n" << x_ << std::endl;
-	std::cout << "P_:\n" << P_ << std::endl;
+	//std::cout << "x_:\n" << x_ << std::endl;
+	//std::cout << "P_:\n" << P_ << std::endl;
 	//std::cin >> is_initialized_;
 #endif
 }
@@ -331,15 +334,6 @@ void UKF::PredictMeanAndCovariance() {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Use lidar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
-
-  You'll also need to calculate the lidar NIS.
-  */
-
   // LASER
   //update the state by using linear Kalman Filter equations
   //measurement matrix - laser
@@ -367,7 +361,8 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   MatrixXd I = MatrixXd::Identity(x_size, x_size);
   P_ = (I - K * H_) * P_;    
 
-//Calculate NIS
+  //Calculate Normalized Innovation Squared (NIS)
+  NIS_laser_ = y.transpose() * Si * y;
 
 }
 
@@ -376,14 +371,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Use radar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
-
-  You'll also need to calculate the radar NIS.
-  */
   
   // measurement vector: rho, psi, rhodot
   int n_z = 3;
@@ -395,14 +382,15 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_pred = VectorXd(n_z);
   
   VectorXd z_diff = VectorXd(n_z);  
-  
+
   //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z,n_z);  // Why is he not initialized?
+  MatrixXd S = MatrixXd(n_z, n_z);
   S.fill(0.);
-  
-  MatrixXd R = MatrixXd(n_z,n_z);
-  R.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_,std_radrd_*std_radrd_;
-  
+
+  MatrixXd R = MatrixXd(n_z, n_z);
+  R.fill(0.);
+  R.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_, std_radrd_*std_radrd_;
+
   float px_, py_, v_, psi_, psid_;
   //transform sigma points into measurement space
   for (int i=0;i<n_sig_;i++) {
@@ -433,7 +421,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   S += R;
 
   //create matrix for cross correlation Tc
-  MatrixXd Tc = MatrixXd(n_x_, n_z);  // Why is he not initialized?!
+  MatrixXd Tc = MatrixXd(n_x_, n_z);
   Tc.fill(0.);
 
   //create matrix for Kalman gain
@@ -478,7 +466,12 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   x_ += K*(zdiff);
   P_ -= K*S*K.transpose();
 
-/*******************************************************************************
- * Student part end
- ******************************************************************************/  
+  //Calculate Normalized Innovation Squared (NIS)
+  NIS_radar_ = zdiff.transpose() * S.inverse() * zdiff;
+
+#if (TEST==1)
+  //std::cout << "x_:\n" << x_ << std::endl;
+  //std::cout << "P_:\n" << P_ << std::endl;  
+  //std::cin >> n_sig_;
+#endif
 }
