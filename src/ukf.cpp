@@ -3,7 +3,7 @@
 #include "Eigen/Dense"
 #include <iostream>
 
-#define TEST 1
+#define TEST 0
 
 using namespace std;
 using Eigen::MatrixXd;
@@ -132,8 +132,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     Prediction((meas_package.timestamp_ - time_us_)/1E6);
     
     if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
-//	  std::cout << "laser\n";
-//      UpdateLidar(meas_package);
+	  std::cout << "laser\n";
+      UpdateLidar(meas_package);
     }
 
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
@@ -383,14 +383,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   
   VectorXd z_diff = VectorXd(n_z);  
 
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z, n_z);
-  S.fill(0.);
-
-  MatrixXd R = MatrixXd(n_z, n_z);
-  R.fill(0.);
-  R.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_, std_radrd_*std_radrd_;
-
   float px_, py_, v_, psi_, psid_;
   //transform sigma points into measurement space
   for (int i=0;i<n_sig_;i++) {
@@ -400,24 +392,35 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
       psi_ = Xsig_pred_.col(i)(psi);
       psid_ = Xsig_pred_.col(i)(psid);
       
-      Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_), 
-                                                                     atan(py_/px_), 
-                     (px_*cos(psi_)*v_ + py_*sin(psi_)*v_)/sqrt(px_*px_ + py_*py_);
+      Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_),   // r
+                                                                   atan2(py_, px_),   // phi
+                     (px_*cos(psi_)*v_ + py_*sin(psi_)*v_)/sqrt(px_*px_ + py_*py_);   // rdot
 					 
   }
   
   //calculate mean predicted measurement
-  for (int row=0;row<n_z; row++) {
-      for(int col=0;col<n_sig_;col++) {
-          z_pred(row) += weights_(col)*Zsig(row,col);
-      }
+  z_pred.fill(0.0);
+  for (int i=0; i < n_sig_; i++) {
+      z_pred = z_pred + weights_(i) * Zsig.col(i);
   }
-  
+
   //calculate measurement covariance matrix S
+  MatrixXd S = MatrixXd(n_z, n_z);
+  S.fill(0.);
   for(int col=0;col<n_sig_;col++) {
-    z_diff = (Zsig.col(col) - z_pred);
+	z_diff = (Zsig.col(col) - z_pred);
+
+    //angle normalization
+    while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
+    while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
+
     S += weights_(col) * z_diff * z_diff.transpose();
   }
+
+  MatrixXd R = MatrixXd(n_z, n_z);
+  R.fill(0.);
+  R.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_, std_radrd_*std_radrd_;
+
   S += R;
 
   //create matrix for cross correlation Tc
