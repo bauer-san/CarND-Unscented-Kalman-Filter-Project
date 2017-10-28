@@ -92,11 +92,15 @@ UKF::UKF() {
   R_lidar_.fill(0.);
   R_lidar_.diagonal() << std_laspx_*std_laspx_, std_laspy_*std_laspy_;			  
 
+  ///* radar covariance matrix    
+  R_radar_ = MatrixXd(n_z_radar_, n_z_radar_);
+  R_radar_.fill(0.);
+  R_radar_.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_, std_radrd_*std_radrd_;
+
   //Calculate the weights
   weights_ = VectorXd(n_sig_);
   weights_.fill(0.5 / (lambda_ + n_aug_));
   weights_(0) = lambda_/(lambda_ + n_aug_);
-//std::cout << weights_ << std::endl;   
 
 }
 
@@ -136,8 +140,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 	  default:
 	    std::cout << "UNKNOWN SENSOR TYPE: " << meas_package.sensor_type_ << std::endl;
     }
-//  std::cout << "x_ after initialization:\n" << x_ << std::endl;
-//  std::cout << "P_ after initialization:\n" << P_ << std::endl;
   } else {
     
     Prediction((meas_package.timestamp_ - time_us_)/1E6);
@@ -174,7 +176,6 @@ void UKF::Prediction(double delta_t) {
   // 2. Predict Sigma Points
   // 3. Predict Mean and Covariance
 
-  //std::cout << "This delta_t: " << delta_t << std::endl;
   GenerateSigmaPoints();
 #if (TEST==1)
 //	std::cout << "Xsig_aug:\n" << Xsig_aug << std::endl;
@@ -311,15 +312,15 @@ void UKF::PredictMeanAndCovariance() {
   // *************************************************************************************  
   
   //predict new state mean
-	x_.fill(0.);
-	x_ = Xsig_pred_ * weights_;
+  x_.fill(0.);
+  x_ = Xsig_pred_ * weights_;
 
   VectorXd temp2 = VectorXd(n_x_);
-    P_.fill(0.);
-    for (int i=0; i<n_sig_; i++) {
-        temp2 = Xsig_pred_.col(i) - x_;
-        P_ += weights_(i) * temp2 * temp2.transpose();
-    }
+  P_.fill(0.);
+  for (int i=0; i<n_sig_; i++) {
+    temp2 = Xsig_pred_.col(i) - x_;
+    P_ += weights_(i) * temp2 * temp2.transpose();
+  }
 #if (TEST==1)
   //std::cout << "x_:\n" << x_ << std::endl;
   //std::cout << "P_:\n" << P_ << std::endl;  
@@ -375,31 +376,28 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   float px_, py_, v_, psi_, psid_;
   //transform sigma points into measurement space
   for (int i=0;i<n_sig_;i++) {
-      px_ = Xsig_pred_.col(i)(px);
-      py_ = Xsig_pred_.col(i)(py);
-      v_ = Xsig_pred_.col(i)(v);
-      psi_ = Xsig_pred_.col(i)(psi);
-      psid_ = Xsig_pred_.col(i)(psid);
+    px_ = Xsig_pred_.col(i)(px);
+    py_ = Xsig_pred_.col(i)(py);
+    v_ = Xsig_pred_.col(i)(v);
+    psi_ = Xsig_pred_.col(i)(psi);
+    psid_ = Xsig_pred_.col(i)(psid);
       
-	  // Prevent divide by zero
-	  if (px_==0.) {
-		px_ = 0.00001; //just a small x
-	  }
-	  if (py_==0.) {
-		py_ = 0.00001; //just a small y
-	  }
+	// Prevent divide by zero
+	if (px_==0.) {
+	  px_ = 0.00001; //just a small x
+	}
+	if (py_==0.) {
+	  py_ = 0.00001; //just a small y
+	}
 	  
-      Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_),   // r
-                                                                   atan2(py_, px_),   // phi
-                     (px_*cos(psi_)*v_ + py_*sin(psi_)*v_)/sqrt(px_*px_ + py_*py_);   // rdot
-					 
+    Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_),   // r
+                                                                 atan2(py_, px_),   // phi
+                   (px_*cos(psi_)*v_ + py_*sin(psi_)*v_)/sqrt(px_*px_ + py_*py_);   // rdot				 
   }
   
   //calculate mean predicted measurement
   z_pred.fill(0.0);
-  for (int i=0; i < n_sig_; i++) {
-      z_pred = z_pred + weights_(i) * Zsig.col(i);
-  }
+  z_pred = Zsig * weights_;
 
   //calculate measurement covariance matrix S
   MatrixXd S = MatrixXd(n_z_radar_, n_z_radar_);
@@ -414,11 +412,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     S += weights_(col) * z_diff * z_diff.transpose();
   }
 
-  MatrixXd R_lidar_ = MatrixXd(n_z_radar_, n_z_radar_);
-  R_lidar_.fill(0.);
-  R_lidar_.diagonal() << std_radr_*std_radr_, std_radphi_*std_radphi_, std_radrd_*std_radrd_;
-
-  S += R_lidar_;
+  S += R_radar_;
 
   //create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z_radar_);

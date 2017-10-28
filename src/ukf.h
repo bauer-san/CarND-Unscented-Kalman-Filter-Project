@@ -41,6 +41,9 @@ public:
   ///* lidar covariance matrix    
   MatrixXd R_lidar_;
 
+  ///* lidar covariance matrix      
+  MatrixXd R_radar_;
+
   ///* time when the state is true, in us
   long long time_us_;
 
