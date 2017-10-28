@@ -34,6 +34,12 @@ public:
   
   ///* state covariance matrix
   MatrixXd P_;
+  
+  ///* lidar measurement matrix  
+  MatrixXd H_lidar_;
+  
+  ///* lidar covariance matrix    
+  MatrixXd R_lidar_;
 
   ///* time when the state is true, in us
   long long time_us_;
@@ -70,6 +76,12 @@ public:
 
   ///* number of sigma points  
   int n_sig_;
+
+  ///* number of lidar measurements
+  int n_z_lidar_;
+
+  ///* number of radar measurements
+  int n_z_radar_;
 
   ///* Sigma point spreading parameter
   double lambda_;
