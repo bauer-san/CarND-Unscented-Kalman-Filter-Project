@@ -78,13 +78,8 @@ UKF::UKF() {
 
   //Calculate the weights
   weights_ = VectorXd(n_sig_);
-  for (int i=0;i<n_sig_;i++) {
-    if (i==0) {
-        weights_(i) = lambda_ / (lambda_+n_aug_);
-    } else {
-        weights_(i) = 0.5 / (lambda_+n_aug_);
-    }
-  }
+  weights_.fill(0.5 / (lambda_ + n_aug_));
+  weights_(0) = lambda_/(lambda_ + n_aug_);
 //std::cout << weights_ << std::endl;   
 
 }
@@ -132,12 +127,12 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     Prediction((meas_package.timestamp_ - time_us_)/1E6);
     
     if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
-	  std::cout << "laser\n";
+//	  std::cout << "laser\n";
       UpdateLidar(meas_package);
     }
 
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
-	  std::cout << "radar\n";
+//	  std::cout << "radar\n";
       UpdateRadar(meas_package);
     }
   }
@@ -301,19 +296,7 @@ void UKF::PredictMeanAndCovariance() {
   
   //predict new state mean
 	x_.fill(0.);
-    for (int i=0;i<n_sig_; i++) {
-#if (TEST==1)
-//	std::cout << "i: " << i << std::endl;
-//	std::cout << "x_:\n" << x_ << std::endl;
-//	std::cout << "weights_(i): " << weights_(i) << std::endl;
-//	std::cout << "Xsig_pred_.col(i):\n" << Xsig_pred_.col(i) << std::endl;
-//	std::cout << "Expected x_:\n" << x_ + (weights_(i) * Xsig_pred_.col(i)) << std::endl;
-#endif
-        x_ = x_ + (weights_(i) * Xsig_pred_.col(i));
-#if (TEST==1)
-//	std::cout << "x_:\n" << x_ << std::endl;
-#endif
-    }
+	x_ = Xsig_pred_ * weights_;
 
   VectorXd temp2 = VectorXd(n_x_);
     P_.fill(0.);
@@ -392,6 +375,14 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
       psi_ = Xsig_pred_.col(i)(psi);
       psid_ = Xsig_pred_.col(i)(psid);
       
+	  // Prevent divide by zero
+	  if (px_==0.) {
+		px_ = 0.00001; //just a small x
+	  }
+	  if (py_==0.) {
+		py_ = 0.00001; //just a small y
+	  }
+	  
       Zsig.col(i) <<                                       sqrt(px_*px_ + py_*py_),   // r
                                                                    atan2(py_, px_),   // phi
                      (px_*cos(psi_)*v_ + py_*sin(psi_)*v_)/sqrt(px_*px_ + py_*py_);   // rdot
@@ -438,8 +429,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   for (int col=0; col <n_sig_; col++) {
     xdiff=Xsig_pred_.col(col) - x_;
     //angle normalization
-    while (xdiff(1)> M_PI) xdiff(1)-=2.*M_PI;
-    while (xdiff(1)<-M_PI) xdiff(1)+=2.*M_PI;
+    while (xdiff(3)> M_PI) xdiff(3)-=2.*M_PI;
+    while (xdiff(3)<-M_PI) xdiff(3)+=2.*M_PI;
 
     //zdiff=Zsig.col(col) - z;
 	zdiff=Zsig.col(col) - meas_package.raw_measurements_;
